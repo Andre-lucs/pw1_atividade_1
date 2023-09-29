@@ -1,0 +1,37 @@
+# Arquivos gerados pelo TypeScript
+dist/
+
+# Módulos do Node.js
+node_modules/
+
+# Arquivos de compilação TypeScript
+*.js
+*.js.map
+*.d.ts
+
+# Arquivos de configuração do TypeScript
+tsconfig.json
+tsconfig.prod.json
+tsconfig.test.json
+
+# Arquivos de log
+*.log
+
+# Arquivos de ambiente
+.env
+.env.local
+.env.*.local
+.env.development
+.env.test
+.env.production
+
+# Arquivos de sistema operacional
+.DS_Store
+Thumbs.db
+
+# Arquivos de cache
+.cache/
+
+# Dependendo do seu editor/IDE, pode haver arquivos ou diretórios adicionais a serem ignorados
+# Por exemplo, para Visual Studio Code:
+.vscode/
