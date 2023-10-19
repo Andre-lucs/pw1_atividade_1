@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
+import BaseError from "../types/BaseError";
 
-export default (err: Error, req: Request, res: Response, next: NextFunction) => {
-    console.error(err.stack);
-    res.status(500).send('Something broke!');
+export default (err : BaseError, req: Request, res: Response, next: NextFunction) => {
+    res.status(err.status || 500).send(err.message);
 };

@@ -1,18 +1,21 @@
-import express ,{ Express, Request, Response, NextFunction } from "express";
+import express ,{ Express } from "express";
 
 import errorHandling from "./middlewares/errorHandling";
 import indexRouter from './routes/indexRouter';
+import userRouter from './routes/userRouter';
+import technologiesRouter from './routes/techRouter';
 
 const app : Express = express();
 const port = 3000;
 
 app.use(express.json());
+app.use(express.urlencoded());
 
 app.use("/", indexRouter);
 
-app.get('/', (req: Request, res: Response) => {
-    res.send('Hello, Express with TypeScript!');
-});
+app.use("/users", userRouter);
+
+app.use("/technologies", technologiesRouter);
 
 app.use(errorHandling);
 
