@@ -1,21 +1,25 @@
 import { Request, Response, NextFunction } from "express";
-import User from "../types/User";
-import * as data from "../data";
+import { PrismaClient, User } from "@prisma/client";
 
-export default (req : Request, res : Response, next : NextFunction) => {
+const prisma = new PrismaClient();
+
+export default async (req : Request, res : Response, next : NextFunction) => {
 
     const requestBody : User = req.body as User;
-    const repeated : boolean = data.users.find((user)=> user.username == requestBody.username)?.username == requestBody.username;
+    const repeated : boolean = await prisma.user.findUnique({
+        where: {
+            username: requestBody.username
+        }
+    }) !== null;
 
     if(repeated){
         return res.status(400).json({
-            error: 'Esse usuario ja esta cadastrado'
+            error: 'Invalid User: username already exists'
         });
     }
-    if(!requestBody.technologies) requestBody.technologies = [];
 
-    if(requestBody.name && requestBody.username && requestBody.technologies){
-       return next();
+    if(requestBody.name && requestBody.username){
+        return next();
     }
 
     return res.status(400).json({

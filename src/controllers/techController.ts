@@ -1,68 +1,127 @@
-import * as data from "../data";
+import { PrismaClient, Technology } from '@prisma/client';
 import { Request, Response, NextFunction } from "express";
-import {UUID, randomUUID} from 'crypto';
-import User from "../types/User";
-import Technology from "../types/Technology";
-import BaseError from '../types/BaseError';
+import { TechInput } from '../types/TechInput';
 
-const getUserTechnologies = (req: Request, res : Response, next : NextFunction) =>{
-    let username = req.header('username')?.toString();
-    const user : User | undefined = data.users.find((user)=> {return user.username == username});
+const prisma = new PrismaClient();
 
-    res.status(200).json(user?.technologies);
+// Fetches all technologies for a user
+const getUserTechnologies = async (req: Request, res : Response, next : NextFunction) =>{
+    // Ensure username is a string
+    let username : string | undefined = req.header('username')?.toString();
+    try{
+        const technologies : Array<Technology> = await prisma.technology.findMany({
+            where: {
+                user: {
+                    username: username
+                }
+            }
+        })
+        res.status(200).json(technologies);
+    }catch(err){
+        next(err);
+    }
 }
 
-const createTech = (req: Request, res : Response, next : NextFunction)=>{
-    let tech : Technology = req.body;
-    tech.id = randomUUID();
-    tech.created_at = new Date();
-    tech.studied = false;
-
-    data.users.find((user)=>{return user.username == req.header("username")})?.technologies.push(tech);
-    res.status(201).json(tech);
+// Creates a new technology for a user
+const createTech = async (req: Request, res : Response, next : NextFunction)=>{
+    // Get the input data
+    let input : TechInput = req.body;
+    // Ensure deadline is not in the past
+    if (pastDate(new Date(input.deadline))) {
+        return res.status(400).json({ error: "Given deadline is on the past" });
+    }
+    try{
+        let newtech : Technology = await prisma.technology.create({
+            data: {
+                title: input.title,
+                deadline: input.deadline,
+                studied: false,
+                user: {
+                    connect: {
+                        username: req.header("username")
+                    }
+                }
+            }
+        })
+        res.status(201).json(newtech);
+    }catch(err){
+        next(err);
+    }
 }
 
-const updateTech = (req: Request, res : Response, next : NextFunction)=>{
-    let username : String | undefined = req.header("username");
-    let newTech : Technology = req.body;
+// Updates a technology for a user by id
+const updateTech = async (req: Request, res : Response, next : NextFunction)=>{
+    let newTech : TechInput = req.body; // Get the input data
+    let techId : string = req.params.id; // Get the id of the technology to update
+
+    let updateData: Partial<TechInput> = {}; // Create an empty object to store the data to update
+    // If the title is given, add it to the update data
+    if (newTech.title) {
+        updateData.title = newTech.title;
+    }
+    // If the deadline is given, and it is not in the past, add it to the update data
+    if (newTech.deadline) {
+        if (pastDate(new Date(newTech.deadline))) {
+            return res.status(400).json({ error: "Given deadline is on the past" });
+        }
+        updateData.deadline = newTech.deadline;
+    }
+    try{
+        const updated : Technology = await prisma.technology.update({
+            where:{
+                id: techId
+            },
+            data: updateData
+        })
+        // If the technology is not found, return 404
+        if(updated === null) return next({message: "Technology not found", status: 404});
+
+        res.status(200).json(updated);
+    }catch(err){
+        next(err);
+    }
+}
+
+// Marks a technology as studied
+const markStudied = async (req: Request, res : Response, next : NextFunction)=>{
+    let techId : string = req.params.id; // Get the id of the technology to mark as studied
+    try{
+        let updated : Technology = await prisma.technology.update({
+            where:{
+                id: techId
+            },
+            data: {
+                studied: true
+            }
+        })
+        if(!updated) return next({message: "Technology not found", status: 404});
+
+        res.status(200).json(updated);
+    }catch(err){
+        next(err);
+    }
+}
+// Deletes a technology for a user by id
+const deleteTech = async (req: Request, res : Response, next : NextFunction)=>{
     let techId : string = req.params.id;
 
-    let user : User | undefined = data.users.find((user)=> {return user.username == username});
-    let tech : Technology | undefined = user?.technologies.find((tech)=>{
-        return techId == tech.id
-    });
-
-    if(tech === undefined) return next({message: "Technology not found", status: 404});
-
-    tech.deadline = new Date(newTech.deadline);
-    tech.title = newTech.title; 
-    res.status(200).json(tech);
-}
-
-const markStudied = (req: Request, res : Response, next : NextFunction)=>{
-    let username : String | undefined = req.header("username");
-    let techId : string = req.params.id;
-
-    let user : User | undefined = data.users.find((user)=> {return user.username == username});
-    let tech : Technology | undefined = user?.technologies.find((tech)=>{
-        return techId == tech.id
-    });
-
-    if(tech === undefined) return next({message: "Technology not found", status: 404});
-
-    tech.studied = true; 
-    res.status(200).json(tech);
-}
-
-const deleteTech = (req: Request, res : Response, next : NextFunction)=>{
-    let username : String | undefined = req.header("username");
-    let techId : string = req.params.id;
-
-    let user : User | undefined = data.users.find((user)=> {return user.username == username});
-    if(user === undefined) return next({message:"User not found", status: 404});
-    user.technologies = user.technologies.filter((tech)=>{ return tech.id !== techId});
-
-    res.status(204).send();
+    try{
+        let deleted : Technology = await prisma.technology.delete({
+            where:{
+                id: techId
+            }
+        })
+        res.status(204).send();
+    }
+    catch(err:any){
+        err.status=404;
+        next(err);
+    }
 }
 
 export {getUserTechnologies, createTech, updateTech, markStudied, deleteTech};
+
+// Checks if a date is in the past
+function pastDate(date : Date){
+    return date < new Date();
+}
